@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, date
 from bson import ObjectId
 
 from database import db
@@ -26,10 +26,10 @@ async def save_today_symptoms(
     """Save today's symptoms for the authenticated user"""
     
     # Check if symptoms already exist for today
-    today = date.today()
+    today = datetime.utcnow().date()
     existing_symptom = await symptoms_collection.find_one({
-        "user_id": current_user["id"],
-        "date": today
+        "user_id": str(current_user["_id"]),
+        "date": datetime.combine(today, datetime.min.time())
     })
     
     if existing_symptom:
@@ -46,15 +46,18 @@ async def save_today_symptoms(
         updated_symptom = await symptoms_collection.find_one({"_id": existing_symptom["_id"]})
         return SymptomResponse(**updated_symptom, id=str(updated_symptom["_id"]))
     
-    # Create new symptom entry
+    # Create new symptom entry with datetime instead of date
+    symptom_data_dict = symptom_data.dict()
     symptom_doc = SymptomDocument(
-        user_id=current_user["id"],
-        date=today,
-        **symptom_data.dict()
+        user_id=str(current_user["_id"]),
+        date=datetime.combine(today, datetime.min.time()),  # Convert date to datetime at start of day
+        **symptom_data_dict
     )
     
     # Insert into MongoDB
-    result = await symptoms_collection.insert_one(symptom_doc.dict(by_alias=True))
+    symptom_dict = symptom_doc.dict(by_alias=True)
+    symptom_dict['date'] = datetime.combine(symptom_doc.date, datetime.min.time())  # Ensure datetime is used
+    result = await symptoms_collection.insert_one(symptom_dict)
     
     # Fetch the created document
     created_symptom = await symptoms_collection.find_one({"_id": result.inserted_id})
@@ -68,10 +71,10 @@ async def predict_tomorrow_symptoms(
     """Predict tomorrow's symptoms based on user's historical data"""
     
     # Get user's symptom history (last 30 days)
-    thirty_days_ago = date.today() - timedelta(days=30)
+    thirty_days_ago = datetime.combine(date.today() - timedelta(days=30), datetime.min.time())
     
     cursor = symptoms_collection.find({
-        "user_id": current_user["id"],
+        "user_id": str(current_user["_id"]),
         "date": {"$gte": thirty_days_ago}
     }).sort("date", -1)
     
@@ -103,20 +106,20 @@ async def get_suggestions(
     """Get health suggestions based on current and predicted symptoms"""
     
     # Get today's symptoms
-    today = date.today()
+    today = datetime.utcnow().date()
     today_symptoms = await symptoms_collection.find_one({
-        "user_id": current_user["id"],
-        "date": today
+        "user_id": str(current_user["_id"]),
+        "date": datetime.combine(today, datetime.min.time())
     })
     
     predicted_symptoms = []
     
     if include_predictions:
         # Get recent symptom history for predictions
-        thirty_days_ago = today - timedelta(days=30)
+        thirty_days_ago = datetime.combine(today - timedelta(days=30), datetime.min.time())
         
         cursor = symptoms_collection.find({
-            "user_id": current_user["id"],
+            "user_id": str(current_user["_id"]),
             "date": {"$gte": thirty_days_ago}
         }).sort("date", -1)
         
@@ -153,10 +156,11 @@ async def get_symptom_history(
             detail="Cannot retrieve more than 365 days of history"
         )
     
-    start_date = date.today() - timedelta(days=days)
+    # Convert start_date to datetime at start of day for MongoDB query
+    start_date = datetime.combine(date.today() - timedelta(days=days), datetime.min.time())
     
     cursor = symptoms_collection.find({
-        "user_id": current_user["id"],
+        "user_id": str(current_user["_id"]),
         "date": {"$gte": start_date}
     }).sort("date", -1)
     
@@ -174,10 +178,10 @@ async def get_symptom_analytics(
 ):
     """Get analytics and patterns from user's symptom data"""
     
-    start_date = date.today() - timedelta(days=days)
+    start_date = datetime.combine(date.today() - timedelta(days=days), datetime.min.time())
     
     cursor = symptoms_collection.find({
-        "user_id": current_user["id"],
+        "user_id": str(current_user["_id"]),
         "date": {"$gte": start_date}
     })
     
@@ -268,10 +272,10 @@ async def get_today_symptoms(
 ):
     """Get today's symptoms for the authenticated user"""
     
-    today = date.today()
+    today = datetime.utcnow().date()
     symptom = await symptoms_collection.find_one({
-        "user_id": current_user["id"],
-        "date": today
+        "user_id": str(current_user["_id"]),
+        "date": datetime.combine(today, datetime.min.time())
     })
     
     if not symptom:

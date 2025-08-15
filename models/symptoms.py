@@ -23,7 +23,7 @@ class SymptomDocument(BaseModel):
     
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     user_id: str = Field(..., description="User ID (string for MongoDB)")
-    symptom_date: date = Field(..., description="Date of symptom entry", alias="date")
+    date: datetime = Field(..., description="Date of symptom entry (datetime at start of day)")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Mood tracking
@@ -48,11 +48,14 @@ class SymptomDocument(BaseModel):
     class Config:
         validate_by_name = True
         arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+        json_encoders = {
+            ObjectId: str,
+            datetime: lambda v: v.isoformat()
+        }
         json_schema_extra = {
             "example": {
                 "user_id": "user123",
-                "symptom_date": "2024-01-15",
+                "date": "2024-01-15T00:00:00",
                 "mood": "happy",
                 "cramps": "mild",
                 "headache": False,

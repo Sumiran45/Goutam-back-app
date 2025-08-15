@@ -121,6 +121,12 @@ class SymptomPredictor:
         # Estimate cycle day (simplified - you might want to integrate with cycle tracking)
         last_flow_date = self._find_last_flow_date(recent_symptoms)
         if last_flow_date:
+            # Ensure both dates are datetime.date objects before subtraction
+            if hasattr(target_date, 'date'):
+                target_date = target_date.date()
+            if hasattr(last_flow_date, 'date'):
+                last_flow_date = last_flow_date.date()
+                
             cycle_day = (target_date - last_flow_date).days + 1
             phase_predictions = self._get_cycle_phase_predictions(cycle_day)
             predictions.extend(phase_predictions)

@@ -52,22 +52,25 @@ class SymptomCreate(SymptomInput):
 
 # Response schemas
 class SymptomResponse(BaseModel):
-    id: int
-    user_id: int
-    date: date
+    id: str
+    user_id: str
+    date: datetime
     created_at: datetime
     mood: Optional[str] = None
     cramps: Optional[str] = None
-    headache: bool
-    nausea: bool
-    fatigue: bool
+    headache: bool = False
+    nausea: bool = False
+    fatigue: bool = False
     flow_level: Optional[str] = None
     sleep_quality: Optional[str] = None
     food_cravings: Optional[str] = None
     notes: Optional[str] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 class SymptomSummary(BaseModel):
     date: date
